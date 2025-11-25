@@ -1,0 +1,60 @@
+version: '3.8'
+
+services:
+  mongodb:
+    image: mongo:7.0
+    container_name: nestjs-mongodb
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    environment:
+      MONGO_INITDB_DATABASE: nestjs-microservices
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - nestjs-network
+
+  authentication:
+    build:
+      context: .
+      dockerfile: Dockerfile.authentication
+    container_name: nestjs-authentication
+    restart: unless-stopped
+    ports:
+      - '3001:3001'
+    environment:
+      - NODE_ENV=production
+      - MONGODB_URI=mongodb://mongodb:27017/nestjs-microservices
+      - AUTH_SERVICE_HOST=0.0.0.0
+      - AUTH_SERVICE_PORT=3001
+    depends_on:
+      - mongodb
+    networks:
+      - nestjs-network
+
+  gateway:
+    build:
+      context: .
+      dockerfile: Dockerfile.gateway
+    container_name: nestjs-gateway
+    restart: unless-stopped
+    ports:
+      - '3000:3000'
+    environment:
+      - NODE_ENV=production
+      - GATEWAY_PORT=3000
+      - AUTH_SERVICE_HOST=authentication
+      - AUTH_SERVICE_PORT=3001
+      - CORS_ORIGIN=*
+    depends_on:
+      - authentication
+      - mongodb
+    networks:
+      - nestjs-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  nestjs-network:
+    driver: bridge
